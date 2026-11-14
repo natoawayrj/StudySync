@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudySync • Plano de Estudos & Gemini Notebook</title>
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .tab-active { background-color: #4f46e5; color: #ffffff; }
+    .tab-inactive { color: #475569; background-color: transparent; }
+    .tab-inactive:hover { background-color: #f1f5f9; color: #0f172a; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade { animation: fadeIn 0.2s ease-out; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+          S
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">StudySync</h1>
+          <p class="text-xs text-slate-500">Plano de Estudos + Gemini Notebook (100% Local)</p>
+        </div>
+      </div>
+
+      <nav class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl" aria-label="Navegação principal">
+        <button id="nav-dashboard" data-tab="dashboard" class="nav-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition tab-active">
+          Painel & Hoje
+        </button>
+        <button id="nav-planner" data-tab="planner" class="nav-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition tab-inactive">
+          Plano de Estudos
+        </button>
+        <button id="nav-notebooks" data-tab="notebooks" class="nav-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition tab-inactive">
+          Cadernos & Resumos
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Toast notification -->
+  <div id="toast" class="fixed bottom-4 right-4 z-50 hidden bg-slate-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg max-w-sm"></div>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
+
+    <!-- TAB 1: DASHBOARD & HOJE -->
+    <section id="tab-dashboard" class="space-y-6 animate-fade">
+      <!-- KPI Row -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <p class="text-xs font-medium text-slate-500">Cadernos Conectados</p>
+          <p id="kpi-notebooks" class="text-2xl font-bold text-slate-900 mt-1">5</p>
+          <p class="text-xs text-indigo-600 mt-1">33 fontes indexadas</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <p class="text-xs font-medium text-slate-500">Sessões na Semana</p>
+          <p id="kpi-sessions" class="text-2xl font-bold text-slate-900 mt-1">0/0</p>
+          <p class="text-xs text-emerald-600 mt-1">Concluídas / planejadas</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <p class="text-xs font-medium text-slate-500">Tempo Focado</p>
+          <p id="kpi-minutes" class="text-2xl font-bold text-slate-900 mt-1">0 min</p>
+          <p class="text-xs text-slate-500 mt-1">Registrado via Pomodoro</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <p class="text-xs font-medium text-slate-500">Próxima Matéria</p>
+          <p id="kpi-next" class="text-sm font-bold text-slate-900 mt-1.5 truncate">—</p>
+          <p id="kpi-next-time" class="text-xs text-slate-500 mt-1">Configure seu plano</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Today's Sessions -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Agenda da Semana & Sessões</h2>
+              <p class="text-xs text-slate-500">Marque as sessões concluídas ou abra o resumo direto do caderno</p>
+            </div>
+            <button id="btn-go-planner" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg">
+              Ajustar horários
+            </button>
+          </div>
+          <div id="dashboard-sessions-list" class="space-y-2.5 flex-1"></div>
+        </div>
+
+        <!-- Pomodoro Focus Timer -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Timer de Foco (Pomodoro)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Estude sem distrações e registre o tempo na matéria</p>
+
+            <div class="mt-4">
+              <label for="pomo-subject" class="block text-xs font-medium text-slate-600 mb-1">Matéria da sessão</label>
+              <select id="pomo-subject" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+            </div>
+
+            <div class="mt-4 flex items-center justify-center gap-2">
+              <button data-mins="25" class="pomo-preset px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">25 min</button>
+              <button data-mins="45" class="pomo-preset px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">45 min</button>
+              <button data-mins="15" class="pomo-preset px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">15 min (Revisão)</button>
+            </div>
+
+            <div class="my-6 text-center">
+              <div id="pomo-display" class="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 tabular-nums">25:00</div>
+              <p id="pomo-status" class="text-xs text-slate-500 mt-1">Pronto para iniciar</p>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="pomo-toggle" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-2.5 rounded-xl transition">
+              Iniciar
+            </button>
+            <button id="pomo-reset" class="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm py-2.5 rounded-xl transition">
+              Zerar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Chart -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Progresso por Matéria</h2>
+            <p class="text-xs text-slate-500">Sessões planejadas vs. concluídas nesta semana</p>
+          </div>
+        </div>
+        <div class="relative h-64">
+          <canvas id="progressChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: PLANO DE ESTUDOS -->
+    <section id="tab-planner" class="hidden space-y-6 animate-fade">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Availability Form -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Sua Disponibilidade</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Informe os dias e horários livres entre trabalho, faculdade e família.</p>
+          </div>
+
+          <div>
+            <span class="block text-xs font-semibold text-slate-700 mb-2">Dias disponíveis</span>
+            <div id="days-selector" class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-4 gap-1.5"></div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="slot-start" class="block text-xs font-semibold text-slate-700 mb-1">Início</label>
+              <input id="slot-start" type="time" value="19:30" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label for="slot-end" class="block text-xs font-semibold text-slate-700 mb-1">Fim</label>
+              <input id="slot-end" type="time" value="21:00" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+          </div>
+
+          <div>
+            <label for="session-duration" class="block text-xs font-semibold text-slate-700 mb-1">Duração de cada bloco</label>
+            <select id="session-duration" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+              <option value="30">30 minutos (tiro curto)</option>
+              <option value="45" selected>45 minutos (recomendado)</option>
+              <option value="60">60 minutos</option>
+              <option value="90">90 minutos</option>
+            </select>
+          </div>
+
+          <div>
+            <span class="block text-xs font-semibold text-slate-700 mb-2">Prioridade dos Cadernos</span>
+            <div id="priority-list" class="space-y-2"></div>
+          </div>
+
+          <button id="btn-generate-plan" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-2.5 rounded-xl transition shadow-sm">
+            Gerar Plano Semanal
+          </button>
+
+          <button id="btn-export-ics" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-sm py-2.5 rounded-xl transition">
+            Exportar Lembretes (.ics Google Agenda)
+          </button>
+        </div>
+
+        <!-- Generated Weekly Schedule -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Cronograma Semanal Gerado</h2>
+              <p class="text-xs text-slate-500">Alternância de matérias para melhor absorção e revisão espaçada</p>
+            </div>
+            <div class="flex gap-2">
+              <button id="btn-export-json" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">
+                Backup JSON
+              </button>
+              <label class="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">
+                Importar JSON
+                <input id="input-import-json" type="file" accept="application/json" class="hidden" />
+              </label>
+            </div>
+          </div>
+
+          <div id="planner-schedule-grid" class="space-y-3 flex-1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CADERNOS & RESUMOS -->
+    <section id="tab-notebooks" class="hidden space-y-6 animate-fade">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Notebook Selector -->
+        <div class="space-y-3">
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <h2 class="text-sm font-bold text-slate-900">Seus Cadernos no Gemini Notebook</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Sincronizados sem custo de API. Selecione para estudar:</p>
+            <div id="notebooks-sidebar" class="mt-3 space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- Active Notebook Detail: Summary + Custom Notes + Quick Quiz -->
+        <div class="lg:col-span-2 space-y-5">
+          <div id="notebook-detail-card" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"></div>
+
+          <!-- Custom Summary / Notes from NotebookLM -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Seus Resumos & Anotações do Caderno</h3>
+                <p class="text-xs text-slate-500">Cole aqui novos resumos gerados no Gemini Notebook para acessar direto do plano</p>
+              </div>
+              <button id="btn-save-note" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+                Salvar Resumo
+              </button>
+            </div>
+            <textarea id="custom-note-input" rows="4" placeholder="Cole aqui um resumo do Gemini Notebook, fórmulas ou pontos-chave para revisar..." class="w-full rounded-xl border border-slate-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            <div id="saved-notes-list" class="space-y-2"></div>
+          </div>
+
+          <!-- Active Recall Quiz -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Revisão Ativa (Quiz Rápido)</h3>
+                <p class="text-xs text-slate-500">Teste sua absorção com base nas fontes deste caderno</p>
+              </div>
+              <span id="quiz-score-badge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">0/3 acertos</span>
+            </div>
+            <div id="quiz-container" class="space-y-4"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const NOTEBOOKS_DATA = [
+      {
+        id: 'af-pca',
+        title: 'Guia Completo de Análise Fatorial e PCA',
+        emoji: '📊',
+        url: 'https://gemini.google.com/notebook/62a66757-caf0-4010-bd39-fa149ea223fd',
+        sourceCount: 6,
+        sources: [
+          'Guia_de_Estudos_Analise_Fatorial_e_PCA_v2.pdf',
+          'Research report: Módulos Complementares de Análise Multivariada',
+          'CE076AM_2010.pdf (UFPR)',
+          'Hair Jr. — Análise Multivariada de Dados (6ª ed.)',
+          'Glossário de Estatística (UFERSA)',
+          'Artigo Dialnet 10701551'
+        ],
+        summary: [
+          {
+            heading: 'Fatorabilidade & Diagnósticos Iniciais',
+            points: [
+              'KMO / MSA (Kaiser, 1974): ≥ 0,90 Maravilhoso; 0,80–0,89 Meritório; 0,70–0,79 Mediano; 0,60–0,69 Medíocre; 0,50–0,59 Ruim; < 0,50 Inaceitável (remover variável com menor MSA).',
+              'Teste de Esfericidade de Bartlett: testa H₀ de que a matriz de correlações é igual à matriz identidade (p < 0,05 indica correlações suficientes).'
+            ]
+          },
+          {
+            heading: 'PCA vs. Análise Fatorial Comum (PAF)',
+            points: [
+              'PCA: reduz dimensionalidade resumindo a variância total (diagonal da matriz = 1,0); componentes são combinações lineares das variáveis.',
+              'PAF (Análise Fatorial Comum): identifica construtos latentes usando apenas variância compartilhada (diagonal = comunalidades); variáveis = fatores + erro.'
+            ]
+          },
+          {
+            heading: 'Retenção, Comunalidades e Rotação',
+            points: [
+              'Autovalores (critério de Kaiser λ ≥ 1), Scree Plot e Análise Paralela definem quantos fatores reter.',
+              'Comunalidade (h²): proporção da variância da variável explicada pelos fatores retidos (referência prática ≥ 0,50).',
+              'Rotação Ortogonal (Varimax) mantém fatores não correlacionados; Rotação Oblíqua permite correlação entre fatores.'
+            ]
+          }
+        ],
+        quiz: [
+          {
+            q: 'Qual é a diferença fundamental na diagonal da matriz decomposta entre PCA e PAF?',
+            options: [
+              'PCA usa comunalidades na diagonal; PAF usa 1,0.',
+              'PCA usa 1,0 (variância total); PAF usa estimativas de comunalidade (variância compartilhada).',
+              'Ambas usam 0 na diagonal.'
+            ],
+            answer: 1
+          },
+          {
+            q: 'Segundo o critério de Kaiser (1974), o que fazer com uma variável com MSAᵢ < 0,50?',
+            options: [
+              'Mantê-la obrigatoriamente na rotação Varimax.',
+              'Removê-la da análise, uma de cada vez, começando pela menor.',
+              'Multiplicar seu autovalor por 2.'
+            ],
+            answer: 1
+          },
+          {
+            q: 'Na prática, qual o patamar mínimo recomendado para a comunalidade de uma variável?',
+            options: ['0,10', '0,50', '0,99'],
+            answer: 1
+          }
+        ]
+      },
+      {
+        id: 'power-bi',
+        title: 'Power BI: Beginner to Pro Guide',
+        emoji: '📈',
+        url: 'https://gemini.google.com/notebook/ff8bdc6d-ba26-4f53-8c19-65a6bf409b0c',
+        sourceCount: 2,
+        sources: [
+          'Master DAX in Power BI: The Complete DAX Tutorial [2025]',
+          'ULTIMATE Power BI Tutorial: Beginner to Pro Course'
+        ],
+        summary: [
+          {
+            heading: 'Motor VertiPaq & Colunas vs. Medidas',
+            points: [
+              'DAX opera sobre o motor colunar VertiPaq. Prefira transformações estruturais no Power Query/SQL e use DAX para Medidas dinâmicas.',
+              'Coluna Calculada: avaliada no Row Context (linha a linha) e armazenada na memória. Medida: avaliada sob demanda no Filter Context.'
+            ]
+          },
+          {
+            heading: 'Filter Context & CALCULATE()',
+            points: [
+              'Filter Context são os filtros aplicados automaticamente pelos relacionamentos ativos do modelo e pelos visuais do relatório.',
+              'CALCULATE() é a função mais importante do DAX: modifica, adiciona ou remove filtros do contexto atual (ex.: CALCULATE([Total Sales], ALL(DimTerritory[Country]))).'
+            ]
+          },
+          {
+            heading: 'Boas Práticas & Time Intelligence',
+            points: [
+              'Use DIVIDE(numerador, denominador) para evitar erro de divisão por zero.',
+              'Use DISTINCTCOUNT() para contar pedidos únicos em tabelas fato com múltiplas linhas por pedido.',
+              'Time Intelligence exige uma tabela dCalendário dedicada com datas contínuas sem lacunas nem duplicatas.'
+            ]
+          }
+        ],
+        quiz: [
+          {
+            q: 'Por que usar DIVIDE(a, b) em vez do operador "/" em medidas DAX?',
+            options: [
+              'Porque trata divisão por zero com segurança retornando BLANK.',
+              'Porque cria uma nova tabela calculada.',
+              'Porque ignora relacionamentos ativos.'
+            ],
+            answer: 0
+          },
+          {
+            q: 'Qual função DAX modifica o Filter Context atual?',
+            options: ['SUMX()', 'CALCULATE()', 'RELATEDTABLE()'],
+            answer: 1
+          },
+          {
+            q: 'Para contar pedidos únicos em uma tabela fato onde cada item do pedido é uma linha, qual função usar?',
+            options: ['COUNTROWS()', 'DISTINCTCOUNT()', 'MAX()'],
+            answer: 1
+          }
+        ]
+      },
+      {
+        id: 'processos-org',
+        title: 'Processos Organizacionais: Da Teoria à Estrutura',
+        emoji: '🏢',
+        url: 'https://gemini.google.com/notebook/0426a455-274d-40f2-af05-a45751c6cc96',
+        sourceCount: 4,
+        sources: [
+          'Processos_Organizacionais_APOSTILA_COMPLETA.pdf',
+          'Estrutura para Slides e Mapa Mental - Unidade 1',
+          'Roteiro para Áudio - Unidade 1 (Introdução à Administração)',
+          'Diretrizes do Tutor de Pós-Graduação'
+        ],
+        summary: [
+          {
+            heading: 'Os 3 Blocos da Disciplina (8 Unidades)',
+            points: [
+              'Bloco I (Unidades 1–2): Introdução à Administração e Abordagem Clássica.',
+              'Bloco II (Unidades 3–6): Inovação, Desafios da Administração, Gestão do Conhecimento e Aprendizagem Organizacional.',
+              'Bloco III (Unidades 7–8): Fundamentos e Tipos de Estruturas Organizacionais.'
+            ]
+          },
+          {
+            heading: 'Estrutura Organizacional & Elementos',
+            points: [
+              'Estrutura envolve Divisão do Trabalho (especialização) e Coordenação (integração das tarefas).',
+              'Departamentalização: divisão horizontal do trabalho que atinge homogeneidade e equilíbrio.',
+              'Unidade de Comando: cada colaborador recebe instruções de apenas um superior.'
+            ]
+          },
+          {
+            heading: 'Estrutura Mecânica vs. Orgânica',
+            points: [
+              'Contínuo organizacional (não caixas fechadas) baseado em 5 variáveis: divisão do trabalho, coordenação, comunicação, fluxo e poder formal.',
+              'Mecânica: menor amplitude de controle, alta centralização e alta formalização (ambientes estáveis).',
+              'Orgânica: grande amplitude de controle, alta descentralização e baixa formalização (ambientes instáveis).'
+            ]
+          }
+        ],
+        quiz: [
+          {
+            q: 'Quais são os dois processos fundamentais que compõem a estrutura organizacional?',
+            options: [
+              'Divisão do trabalho e coordenação.',
+              'Marketing e contabilidade.',
+              'Recrutamento e demissão.'
+            ],
+            answer: 0
+          },
+          {
+            q: 'Uma estrutura com alta descentralização, baixa formalização e grande amplitude de controle é:',
+            options: ['Mecânica', 'Orgânica', 'Linear rígida'],
+            answer: 1
+          },
+          {
+            q: 'O princípio em que cada colaborador recebe instruções de apenas um superior chama-se:',
+            options: ['Departamentalização', 'Unidade de comando', 'Amplitude de controle'],
+            answer: 1
+          }
+        ]
+      },
+      {
+        id: 'series-temporais',
+        title: 'Séries Temporais',
+        emoji: '📉',
+        url: 'https://gemini.google.com/notebook/bb5a7a1e-b5df-4da6-95ab-dfe481d23e60',
+        sourceCount: 5,
+        sources: [
+          'Aula 01: Gestão de Dados e Previsão em Séries Temporais',
+          'Aula 02: Conceitos Matemáticos antes da Análise',
+          'Aula 03: O que é Covariância?',
+          'Aula 04: Como calcular Covariância no Google Planilhas',
+          'index.pdf (Material completo)'
+        ],
+        summary: [
+          {
+            heading: 'Componentes de uma Série Temporal',
+            points: [
+              'Uma série temporal é uma realização de variáveis aleatórias indexadas no tempo, com dependência temporal entre observações.',
+              'Componentes clássicos: Tendência (direção de longo prazo), Sazonalidade (padrões cíclicos periódicos) e Variação Aleatória (ruído).'
+            ]
+          },
+          {
+            heading: 'Estacionariedade & Covariância',
+            points: [
+              'Estacionariedade Fraca: média, variância e autocovariância (dependência entre t e t+k) permanecem constantes ao longo do tempo.',
+              'Se a série possui tendência ou sazonalidade marcada, ela não é estacionária e precisa de diferenciação/transformação antes da modelagem.'
+            ]
+          },
+          {
+            heading: 'Teste Prático de Estacionariedade',
+            points: [
+              'Dividir uma série longa em blocos de tamanhos iguais e calcular média, variância e covariância em cada bloco.',
+              'Se essas três propriedades variarem significativamente entre blocos, a série não pode ser assumida como estacionária.'
+            ]
+          }
+        ],
+        quiz: [
+          {
+            q: 'O que define a estacionariedade fraca em uma série temporal?',
+            options: [
+              'A série nunca pode ter valores negativos.',
+              'Média, variância e autocovariância constantes ao longo do tempo.',
+              'Presença obrigatória de tendência crescente.'
+            ],
+            answer: 1
+          },
+          {
+            q: 'No teste prático em blocos, o que comparamos entre os blocos da série?',
+            options: [
+              'Média, variância e covariância.',
+              'Apenas o valor máximo e mínimo.',
+              'Somente o tamanho da amostra.'
+            ],
+            answer: 0
+          },
+          {
+            q: 'Por que a covariância é essencial em séries temporais?',
+            options: [
+              'Porque mede a dependência linear entre observações em diferentes instantes de tempo.',
+              'Porque substitui o eixo do tempo.',
+              'Porque remove automaticamente a sazonalidade.'
+            ],
+            answer: 0
+          }
+        ]
+      },
+      {
+        id: 'nosql',
+        title: 'The NoSQL Database Learning Blueprint',
+        emoji: '📚',
+        url: 'https://gemini.google.com/notebook/7a2d2a47-3b45-4224-bb9f-03cd64062607',
+        sourceCount: 16,
+        sources: [
+          '1pdf.pdf (História dos Bancos Não Relacionais)',
+          'conteudo2.pdf (Classificação NoSQL)',
+          'conteudo3.pdf (Bancos Chave-Valor & Teorema CAP)',
+          '4.pdf & conteudo5.pdf',
+          'dicas.txt – Dicas5.txt'
+        ],
+        summary: [
+          {
+            heading: 'Teorema CAP (Consistência, Disponibilidade, Partição)',
+            points: [
+              'Em sistemas distribuídos, apenas 2 das 3 propriedades podem ser garantidas simultaneamente.',
+              'CA (Consistência + Disponibilidade): bancos relacionais não distribuídos (MySQL, PostgreSQL).',
+              'CP (Consistência + Tolerância à Partição): MongoDB, Redis (sacrificam disponibilidade em falha de rede).',
+              'AP (Disponibilidade + Tolerância à Partição): Cassandra, DynamoDB (consistência eventual).'
+            ]
+          },
+          {
+            heading: 'Os 4 Principais Modelos NoSQL',
+            points: [
+              'Chave-Valor: pares key-value com acesso O(1), ideal para cache, sessões e filas (Redis, DynamoDB).',
+              'Documentos: armazena JSON/BSON sem esquema rígido (MongoDB, CouchDB).',
+              'Colunar: famílias de colunas otimizadas para escrita massiva e séries/analytics (Cassandra, HBase, BigTable).',
+              'Grafos: nós e arestas para relacionamentos complexos e recomendações (Neo4j).'
+            ]
+          }
+        ],
+        quiz: [
+          {
+            q: 'Segundo o Teorema CAP, quais bancos priorizam CP (Consistência e Tolerância à Partição)?',
+            options: ['MySQL e PostgreSQL', 'MongoDB e Redis', 'Cassandra e DynamoDB'],
+            answer: 1
+          },
+          {
+            q: 'Qual modelo NoSQL armazena dados em formato BSON/JSON sem exigir esquema rígido?',
+            options: ['Orientado a Documentos (ex.: MongoDB)', 'Colunar', 'Grafos'],
+            answer: 0
+          },
+          {
+            q: 'Para representar redes sociais, fraudes e relacionamentos com nós e arestas, qual modelo é ideal?',
+            options: ['Chave-Valor', 'Grafos (ex.: Neo4j)', 'Relacional'],
+            answer: 1
+          }
+        ]
+      }
+    ];
+
+    const DAYS = [
+      { id: 'seg', label: 'Seg', full: 'Segunda-feira', ics: 'MO' },
+      { id: 'ter', label: 'Ter', full: 'Terça-feira', ics: 'TU' },
+      { id: 'qua', label: 'Qua', full: 'Quarta-feira', ics: 'WE' },
+      { id: 'qui', label: 'Qui', full: 'Quinta-feira', ics: 'TH' },
+      { id: 'sex', label: 'Sex', full: 'Sexta-feira', ics: 'FR' },
+      { id: 'sab', label: 'Sáb', full: 'Sábado', ics: 'SA' },
+      { id: 'dom', label: 'Dom', full: 'Domingo', ics: 'SU' }
+    ];
+
+    const STORAGE_KEY = 'studysync_renato_v1';
+
+    let state = {
+      activeTab: 'dashboard',
+      selectedNotebookId: NOTEBOOKS_DATA[0].id,
+      availableDays: ['ter', 'qua', 'qui', 'sab'],
+      slotStart: '19:30',
+      slotEnd: '21:00',
+      sessionDuration: 45,
+      priorities: {
+        'af-pca': 'alta',
+        'series-temporais': 'alta',
+        'power-bi': 'media',
+        'processos-org': 'media',
+        'nosql': 'baixa'
+      },
+      sessions: [],
+      customNotes: {},
+      quizAnswers: {},
+      focusedMinutes: 0
+    };
+
+    let progressChartInstance = null;
+    let pomoInterval = null;
+    let pomoSecondsLeft = 25 * 60;
+    let pomoInitialSeconds = 25 * 60;
+    let pomoRunning = false;
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.add('hidden'), 3200);
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        // localStorage indisponível no modo privado
+      }
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state = { ...state, ...parsed };
+        }
+      } catch (e) {
+        // Ignora erro de leitura
+      }
+      if (!Array.isArray(state.sessions) || state.sessions.length === 0) {
+        generateWeeklyPlan(false);
+      }
+    }
+
+    function getNotebook(id) {
+      return NOTEBOOKS_DATA.find(n => n.id === id) || NOTEBOOKS_DATA[0];
+    }
+
+    function timeToMins(t) {
+      const [h, m] = (t || '19:30').split(':').map(Number);
+      return (isNaN(h) ? 19 : h) * 60 + (isNaN(m) ? 30 : m);
+    }
+
+    function minsToTime(mins) {
+      const h = Math.floor(mins / 60) % 24;
+      const m = mins % 60;
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+
+    function generateWeeklyPlan(notify = true) {
+      if (state.availableDays.length === 0) {
+        showToast('Selecione pelo menos um dia disponível.');
+        return;
+      }
+      const startM = timeToMins(state.slotStart);
+      let endM = timeToMins(state.slotEnd);
+      if (endM <= startM) {
+        endM = startM + Number(state.sessionDuration || 45);
+      }
+      const dur = Math.max(15, Number(state.sessionDuration || 45));
+      const blocksPerDay = Math.max(1, Math.floor((endM - startM) / dur));
+
+      // Fila ponderada por prioridade
+      const weightMap = { alta: 3, media: 2, baixa: 1 };
+      const weightedPool = [];
+      NOTEBOOKS_DATA.forEach(nb => {
+        const w = weightMap[state.priorities[nb.id] || 'media'] || 1;
+        for (let i = 0; i < w; i++) weightedPool.push(nb.id);
+      });
+
+      const newSessions = [];
+      let poolIdx = 0;
+      let prevNbId = null;
+
+      DAYS.forEach(day => {
+        if (!state.availableDays.includes(day.id)) return;
+        for (let b = 0; b < blocksPerDay; b++) {
+          let nbId = weightedPool[poolIdx % weightedPool.length];
+          if (nbId === prevNbId && weightedPool.length > 1) {
+            poolIdx++;
+            nbId = weightedPool[poolIdx % weightedPool.length];
+          }
+          prevNbId = nbId;
+          poolIdx++;
+          const sStart = startM + b * dur;
+          const sEnd = sStart + dur;
+          newSessions.push({
+            id: `${day.id}-${b}-${nbId}`,
+            dayId: day.id,
+            dayLabel: day.full,
+            start: minsToTime(sStart),
+            end: minsToTime(sEnd),
+            duration: dur,
+            notebookId: nbId,
+            done: false
+          });
+        }
+      });
+
+      state.sessions = newSessions;
+      saveState();
+      renderAll();
+      if (notify) {
+        showToast(`Plano gerado com ${newSessions.length} sessões na semana!`);
+      }
+    }
+
+    function exportICS() {
+      if (!state.sessions.length) {
+        showToast('Gere um plano semanal antes de exportar.');
+        return;
+      }
+      const now = new Date();
+      const dayIndexMap = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//StudySync//Gemini Notebook Planner//PT-BR',
+        'CALSCALE:GREGORIAN'
+      ];
+
+      state.sessions.forEach(s => {
+        const nb = getNotebook(s.notebookId);
+        const targetDow = dayIndexMap[s.dayId] ?? 1;
+        const diff = (targetDow - now.getDay() + 7) % 7;
+        const evDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+        const y = evDate.getFullYear();
+        const mo = String(evDate.getMonth() + 1).padStart(2, '0');
+        const da = String(evDate.getDate()).padStart(2, '0');
+        const [sh, sm] = s.start.split(':');
+        const [eh, em] = s.end.split(':');
+        const dayObj = DAYS.find(d => d.id === s.dayId);
+
+        lines.push('BEGIN:VEVENT');
+        lines.push(`UID:${s.id}@studysync.local`);
+        lines.push(`DTSTART;TZID=America/Sao_Paulo:${y}${mo}${da}T${sh}${sm}00`);
+        lines.push(`DTEND;TZID=America/Sao_Paulo:${y}${mo}${da}T${eh}${em}00`);
+        lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${dayObj ? dayObj.ics : 'MO'}`);
+        lines.push(`SUMMARY:Estudar: ${nb.title}`);
+        lines.push(`DESCRIPTION:Acessar resumo e fontes no Gemini Notebook: ${nb.url}`);
+        lines.push('END:VEVENT');
+      });
+
+      lines.push('END:VCALENDAR');
+      const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plano_estudos_gemini_notebook.ics';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Arquivo .ics baixado! Importe no Google Agenda.');
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'studysync_backup.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Backup JSON exportado.');
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      ['dashboard', 'planner', 'notebooks'].forEach(t => {
+        const sec = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`nav-${t}`);
+        if (t === tab) {
+          sec.classList.remove('hidden');
+          btn.classList.add('tab-active');
+          btn.classList.remove('tab-inactive');
+        } else {
+          sec.classList.add('hidden');
+          btn.classList.remove('tab-active');
+          btn.classList.add('tab-inactive');
+        }
+      });
+      if (tab === 'dashboard') renderChart();
+      saveState();
+    }
+
+    function openNotebookInApp(nbId) {
+      state.selectedNotebookId = nbId;
+      switchTab('notebooks');
+      renderNotebooksTab();
+    }
+
+    function renderDashboard() {
+      const total = state.sessions.length;
+      const done = state.sessions.filter(s => s.done).length;
+      document.getElementById('kpi-sessions').textContent = `${done}/${total}`;
+      document.getElementById('kpi-minutes').textContent = `${state.focusedMinutes} min`;
+
+      const nextSess = state.sessions.find(s => !s.done);
+      if (nextSess) {
+        const nb = getNotebook(nextSess.notebookId);
+        document.getElementById('kpi-next').textContent = `${nb.emoji} ${nb.title}`;
+        document.getElementById('kpi-next-time').textContent = `${nextSess.dayLabel} • ${nextSess.start}–${nextSess.end}`;
+      } else {
+        document.getElementById('kpi-next').textContent = total > 0 ? 'Tudo concluído!' : 'Sem sessões';
+        document.getElementById('kpi-next-time').textContent = total > 0 ? 'Semana 100% finalizada' : 'Configure seus horários';
+      }
+
+      const listEl = document.getElementById('dashboard-sessions-list');
+      if (state.sessions.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-slate-500 py-6 text-center">Nenhuma sessão gerada ainda. Vá em "Plano de Estudos".</p>';
+      } else {
+        listEl.innerHTML = state.sessions.map(s => {
+          const nb = getNotebook(s.notebookId);
+          return `
+            <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border ${s.done ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'}">
+              <div class="flex items-center gap-3 min-w-0">
+                <input type="checkbox" data-session-id="${s.id}" class="session-check w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" ${s.done ? 'checked' : ''} />
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-slate-900 truncate ${s.done ? 'line-through text-slate-500' : ''}">${nb.emoji} ${nb.title}</p>
+                  <p class="text-xs text-slate-500">${s.dayLabel} • ${s.start}–${s.end} (${s.duration} min)</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button data-open-nb="${nb.id}" class="open-nb-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 text-indigo-600">
+                  Ver Resumo
+                </button>
+                <a href="${nb.url}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
+                  Abrir Caderno ↗
+                </a>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const pomoSelect = document.getElementById('pomo-subject');
+      const currentVal = pomoSelect.value || state.selectedNotebookId;
+      pomoSelect.innerHTML = NOTEBOOKS_DATA.map(nb => `<option value="${nb.id}">${nb.emoji} ${nb.title}</option>`).join('');
+      pomoSelect.value = currentVal;
+
+      renderChart();
+    }
+
+    function renderChart() {
+      const ctx = document.getElementById('progressChart');
+      if (!ctx) return;
+      const labels = NOTEBOOKS_DATA.map(nb => nb.title.length > 22 ? nb.title.slice(0, 22) + '…' : nb.title);
+      const planned = NOTEBOOKS_DATA.map(nb => state.sessions.filter(s => s.notebookId === nb.id).length);
+      const completed = NOTEBOOKS_DATA.map(nb => state.sessions.filter(s => s.notebookId === nb.id && s.done).length);
+
+      if (progressChartInstance) {
+        progressChartInstance.destroy();
+      }
+      progressChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Planejadas', data: planned, backgroundColor: '#cbd5e1', borderRadius: 6 },
+            { label: 'Concluídas', data: completed, backgroundColor: '#4f46e5', borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+
+    function renderPlannerTab() {
+      const daysEl = document.getElementById('days-selector');
+      daysEl.innerHTML = DAYS.map(d => {
+        const active = state.availableDays.includes(d.id);
+        return `
+          <button type="button" data-day="${d.id}" class="day-toggle py-2 rounded-xl text-xs font-semibold border transition ${active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}">
+            ${d.label}
+          </button>
+        `;
+      }).join('');
+
+      document.getElementById('slot-start').value = state.slotStart;
+      document.getElementById('slot-end').value = state.slotEnd;
+      document.getElementById('session-duration').value = String(state.sessionDuration);
+
+      const prioEl = document.getElementById('priority-list');
+      prioEl.innerHTML = NOTEBOOKS_DATA.map(nb => {
+        const val = state.priorities[nb.id] || 'media';
+        return `
+          <div class="flex items-center justify-between gap-2 text-xs bg-slate-50 p-2 rounded-xl border border-slate-200">
+            <span class="font-medium text-slate-800 truncate">${nb.emoji} ${nb.title}</span>
+            <select data-prio-nb="${nb.id}" class="prio-select rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs">
+              <option value="alta" ${val === 'alta' ? 'selected' : ''}>Alta</option>
+              <option value="media" ${val === 'media' ? 'selected' : ''}>Média</option>
+              <option value="baixa" ${val === 'baixa' ? 'selected' : ''}>Baixa</option>
+            </select>
+          </div>
+        `;
+      }).join('');
+
+      const gridEl = document.getElementById('planner-schedule-grid');
+      if (state.sessions.length === 0) {
+        gridEl.innerHTML = '<p class="text-sm text-slate-500 py-8 text-center">Selecione seus dias e clique em "Gerar Plano Semanal".</p>';
+      } else {
+        const byDay = {};
+        state.sessions.forEach(s => {
+          if (!byDay[s.dayLabel]) byDay[s.dayLabel] = [];
+          byDay[s.dayLabel].push(s);
+        });
+        gridEl.innerHTML = Object.entries(byDay).map(([dayName, items]) => `
+          <div class="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">${dayName}</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              ${items.map(s => {
+                const nb = getNotebook(s.notebookId);
+                return `
+                  <div class="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold text-indigo-600">${s.start} – ${s.end}</p>
+                      <p class="text-sm font-bold text-slate-900 truncate">${nb.emoji} ${nb.title}</p>
+                    </div>
+                    <button data-open-nb="${nb.id}" class="open-nb-btn shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                      Estudar
+                    </button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderNotebooksTab() {
+      const sideEl = document.getElementById('notebooks-sidebar');
+      sideEl.innerHTML = NOTEBOOKS_DATA.map(nb => {
+        const active = nb.id === state.selectedNotebookId;
+        return `
+          <button data-select-nb="${nb.id}" class="select-nb-btn w-full text-left p-3 rounded-xl border transition ${active ? 'bg-indigo-50 border-indigo-300 text-indigo-950' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-semibold truncate">${nb.emoji} ${nb.title}</span>
+              <span class="text-xs text-slate-500 shrink-0">${nb.sourceCount} fontes</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+
+      const nb = getNotebook(state.selectedNotebookId);
+      const detailEl = document.getElementById('notebook-detail-card');
+      detailEl.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-slate-200">
+          <div>
+            <span class="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 mb-1.5">Gemini Notebook • ${nb.sourceCount} fontes</span>
+            <h2 class="text-lg font-bold text-slate-900">${nb.emoji} ${nb.title}</h2>
+          </div>
+          <a href="${nb.url}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+            Abrir no Gemini Notebook ↗
+          </a>
+        </div>
+
+        <div class="mt-4 space-y-4">
+          ${nb.summary.map(sec => `
+            <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200">
+              <h3 class="text-sm font-bold text-slate-900 mb-1.5">${sec.heading}</h3>
+              <ul class="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                ${sec.points.map(p => `<li>${p}</li>`).join('')}
+              </ul>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100">
+          <p class="text-xs font-semibold text-slate-500 mb-1.5">Fontes indexadas neste caderno:</p>
+          <div class="flex flex-wrap gap-1.5">
+            ${nb.sources.map(src => `<span class="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">${src}</span>`).join('')}
+          </div>
+        </div>
+      `;
+
+      // Saved notes for this notebook
+      const notes = state.customNotes[nb.id] || [];
+      const notesEl = document.getElementById('saved-notes-list');
+      if (notes.length === 0) {
+        notesEl.innerHTML = '<p class="text-xs text-slate-400">Nenhum resumo personalizado salvo para este caderno ainda.</p>';
+      } else {
+        notesEl.innerHTML = notes.map((n, idx) => `
+          <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-200 flex items-start justify-between gap-3">
+            <div class="text-sm text-slate-800 whitespace-pre-wrap">${n.text}</div>
+            <button data-del-note="${idx}" class="del-note-btn text-xs text-rose-600 hover:text-rose-800 font-semibold shrink-0">Excluir</button>
+          </div>
+        `).join('');
+      }
+
+      // Quiz
+      const userAns = state.quizAnswers[nb.id] || {};
+      let correctCount = 0;
+      nb.quiz.forEach((item, i) => {
+        if (userAns[i] === item.answer) correctCount++;
+      });
+      document.getElementById('quiz-score-badge').textContent = `${correctCount}/${nb.quiz.length} acertos`;
+
+      const quizEl = document.getElementById('quiz-container');
+      quizEl.innerHTML = nb.quiz.map((item, qIdx) => {
+        const chosen = userAns[qIdx];
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60">
+            <p class="text-sm font-semibold text-slate-900 mb-2">${qIdx + 1}. ${item.q}</p>
+            <div class="space-y-1.5">
+              ${item.options.map((opt, oIdx) => {
+                let cls = 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50';
+                if (chosen !== undefined) {
+                  if (oIdx === item.answer) cls = 'bg-emerald-50 border-emerald-400 text-emerald-900 font-semibold';
+                  else if (oIdx === chosen) cls = 'bg-rose-50 border-rose-400 text-rose-900';
+                }
+                return `
+                  <button data-q="${qIdx}" data-o="${oIdx}" class="quiz-opt-btn w-full text-left text-xs sm:text-sm px-3 py-2 rounded-lg border transition ${cls}">
+                    ${opt}
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updatePomodoroDisplay() {
+      const mins = Math.floor(pomoSecondsLeft / 60);
+      const secs = pomoSecondsLeft % 60;
+      document.getElementById('pomo-display').textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function togglePomodoro() {
+      const btn = document.getElementById('pomo-toggle');
+      const statusEl = document.getElementById('pomo-status');
+      if (pomoRunning) {
+        clearInterval(pomoInterval);
+        pomoRunning = false;
+        btn.textContent = 'Retomar';
+        statusEl.textContent = 'Pausado';
+      } else {
+        clearInterval(pomoInterval);
+        pomoRunning = true;
+        btn.textContent = 'Pausar';
+        statusEl.textContent = 'Foco em andamento...';
+        pomoInterval = setInterval(() => {
+          if (pomoSecondsLeft > 0) {
+            pomoSecondsLeft--;
+            updatePomodoroDisplay();
+          } else {
+            clearInterval(pomoInterval);
+            pomoRunning = false;
+            btn.textContent = 'Iniciar';
+            const earned = Math.round(pomoInitialSeconds / 60);
+            state.focusedMinutes += earned;
+            saveState();
+            renderDashboard();
+            statusEl.textContent = `Sessão de ${earned} min concluída!`;
+            showToast(`Parabéns! +${earned} min registrados no seu estudo.`);
+          }
+        }, 1000);
+      }
+    }
+
+    function resetPomodoro(mins) {
+      clearInterval(pomoInterval);
+      pomoRunning = false;
+      const m = mins || Math.round(pomoInitialSeconds / 60) || 25;
+      pomoInitialSeconds = m * 60;
+      pomoSecondsLeft = m * 60;
+      document.getElementById('pomo-toggle').textContent = 'Iniciar';
+      document.getElementById('pomo-status').textContent = 'Pronto para iniciar';
+      updatePomodoroDisplay();
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderPlannerTab();
+      renderNotebooksTab();
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      renderAll();
+      switchTab(state.activeTab || 'dashboard');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.getElementById('btn-go-planner').addEventListener('click', () => switchTab('planner'));
+
+      document.getElementById('btn-generate-plan').addEventListener('click', () => {
+        state.slotStart = document.getElementById('slot-start').value || '19:30';
+        state.slotEnd = document.getElementById('slot-end').value || '21:00';
+        state.sessionDuration = Number(document.getElementById('session-duration').value || 45);
+        generateWeeklyPlan(true);
+      });
+
+      document.getElementById('btn-export-ics').addEventListener('click', exportICS);
+      document.getElementById('btn-export-json').addEventListener('click', exportJSON);
+
+      document.getElementById('input-import-json').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const imported = JSON.parse(reader.result);
+            state = { ...state, ...imported };
+            saveState();
+            renderAll();
+            showToast('Backup importado com sucesso!');
+          } catch (err) {
+            showToast('Arquivo JSON inválido.');
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      document.getElementById('pomo-toggle').addEventListener('click', togglePomodoro);
+      document.getElementById('pomo-reset').addEventListener('click', () => resetPomodoro());
+      document.querySelectorAll('.pomo-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.pomo-preset').forEach(b => {
+            b.className = 'pomo-preset px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200';
+          });
+          btn.className = 'pomo-preset px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200';
+          resetPomodoro(Number(btn.dataset.mins));
+        });
+      });
+
+      document.getElementById('btn-save-note').addEventListener('click', () => {
+        const input = document.getElementById('custom-note-input');
+        const text = input.value.trim();
+        if (!text) {
+          showToast('Digite ou cole um resumo antes de salvar.');
+          return;
+        }
+        const nbId = state.selectedNotebookId;
+        if (!state.customNotes[nbId]) state.customNotes[nbId] = [];
+        state.customNotes[nbId].unshift({ text, createdAt: new Date().toISOString() });
+        input.value = '';
+        saveState();
+        renderNotebooksTab();
+        showToast('Resumo salvo neste caderno!');
+      });
+
+      // Delegated events
+      document.body.addEventListener('click', (e) => {
+        const openBtn = e.target.closest('.open-nb-btn');
+        if (openBtn) {
+          openNotebookInApp(openBtn.dataset.openNb);
+          return;
+        }
+        const selBtn = e.target.closest('.select-nb-btn');
+        if (selBtn) {
+          state.selectedNotebookId = selBtn.dataset.selectNb;
+          saveState();
+          renderNotebooksTab();
+          return;
+        }
+        const dayBtn = e.target.closest('.day-toggle');
+        if (dayBtn) {
+          const d = dayBtn.dataset.day;
+          if (state.availableDays.includes(d)) {
+            state.availableDays = state.availableDays.filter(x => x !== d);
+          } else {
+            state.availableDays.push(d);
+          }
+          saveState();
+          renderPlannerTab();
+          return;
+        }
+        const delNoteBtn = e.target.closest('.del-note-btn');
+        if (delNoteBtn) {
+          const idx = Number(delNoteBtn.dataset.delNote);
+          const nbId = state.selectedNotebookId;
+          if (state.customNotes[nbId]) {
+            state.customNotes[nbId].splice(idx, 1);
+            saveState();
+            renderNotebooksTab();
+            showToast('Anotação removida.');
+          }
+          return;
+        }
+        const quizBtn = e.target.closest('.quiz-opt-btn');
+        if (quizBtn) {
+          const qIdx = Number(quizBtn.dataset.q);
+          const oIdx = Number(quizBtn.dataset.o);
+          const nbId = state.selectedNotebookId;
+          if (!state.quizAnswers[nbId]) state.quizAnswers[nbId] = {};
+          state.quizAnswers[nbId][qIdx] = oIdx;
+          saveState();
+          renderNotebooksTab();
+        }
+      });
+
+      document.body.addEventListener('change', (e) => {
+        if (e.target.classList.contains('session-check')) {
+          const id = e.target.dataset.sessionId;
+          const sess = state.sessions.find(s => s.id === id);
+          if (sess) {
+            sess.done = e.target.checked;
+            saveState();
+            renderDashboard();
+          }
+        }
+        if (e.target.classList.contains('prio-select')) {
+          const nbId = e.target.dataset.prioNb;
+          state.priorities[nbId] = e.target.value;
+          saveState();
+        }
+      });
+    });
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

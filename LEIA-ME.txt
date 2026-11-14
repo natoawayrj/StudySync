@@ -1,0 +1,16 @@
+StudySync — Instalação no PC (Windows) e no Celular Android
+===========================================================
+
+1) COMO USAR E INSTALAR NO PC (WINDOWS)
+- Extraia esta pasta no seu computador (ex.: Área de Trabalho ou Documentos).
+- Dê dois cliques em "iniciar_no_pc.bat" (usa o Python que você já tem instalado).
+- O navegador abrirá http://localhost:8765 automaticamente.
+- No Chrome ou Edge, clique no ícone de "Instalar aplicativo" na barra de endereço para usar o StudySync como um app nativo no Windows!
+
+2) COMO INSTALAR NO SEU CELULAR ANDROID (100% GRATUITO E EXCLUSIVO)
+O Android permite instalar este app direto na tela inicial (como aplicativo nativo, funcionando offline) usando um endereço HTTPS gratuito:
+- Opção mais prática (GitHub Pages privado/público ou Netlify Drop):
+  a) Suba os arquivos desta pasta (index.html, manifest.json, sw.js, icon-192.png, icon-512.png) para uma pasta no seu GitHub Pages (ex.: natoawayrj.github.io/studysync) ou arraste a pasta para app.netlify.com/drop.
+  b) Abra o link no Chrome do seu Android.
+  c) Toque no menu (⋮) -> "Adicionar à tela inicial" / "Instalar aplicativo".
+- Dica: Se quiser sincronizar seu progresso entre PC e Android, use os botões "Backup JSON" e "Importar JSON" dentro da aba "Plano de Estudos".
