@@ -1,4 +1,4 @@
-const CACHE_NAME = 'studysync-v1';
+const CACHE_NAME = 'studysync-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -18,6 +18,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Só o app em si passa pelo cache; chamadas à API e ao login do Google vão direto à rede
+  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );

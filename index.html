@@ -236,6 +236,50 @@
         <div class="lg:col-span-2 space-y-5">
           <div id="notebook-detail-card" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"></div>
 
+          <!-- Novo material de estudo -> enviado como fonte ao Gemini Notebook -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Novo Material de Estudo</h3>
+                <p class="text-xs text-slate-500">Enviado automaticamente como fonte deste caderno no Gemini Notebook</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="gn-status-badge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700"></span>
+                <button id="btn-gn-connect" type="button" class="hidden px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">Conectar Google</button>
+                <button id="btn-gn-settings" type="button" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition">Configurar</button>
+              </div>
+            </div>
+
+            <div id="gn-settings" class="hidden rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
+              <label for="gn-client-id" class="block text-xs font-semibold text-slate-700">OAuth Client ID do Google (tipo "Aplicativo da Web")</label>
+              <div class="flex flex-wrap gap-2">
+                <input id="gn-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="1234567890-abc.apps.googleusercontent.com" class="flex-1 min-w-0 rounded-xl border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button id="btn-gn-save-client" type="button" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">Salvar e conectar</button>
+              </div>
+              <p class="text-xs text-slate-500">
+                Configuração única: no Google Cloud Console, ative a <strong>Gemini Notebook API</strong>, adicione o escopo <code>auth/notebook</code> na tela de consentimento e crie um Client ID com a origem <code id="gn-origin"></code>. Passo a passo no README. O Client ID fica só neste navegador; o token de acesso não é gravado.
+              </p>
+            </div>
+
+            <form id="material-form" class="space-y-2.5">
+              <div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Tipo de material">
+                <button type="button" data-mat-kind="url" class="mat-kind-btn px-3 py-1 rounded-lg text-xs font-semibold border">Link / YouTube</button>
+                <button type="button" data-mat-kind="text" class="mat-kind-btn px-3 py-1 rounded-lg text-xs font-semibold border">Texto / Markdown</button>
+                <button type="button" data-mat-kind="file" class="mat-kind-btn px-3 py-1 rounded-lg text-xs font-semibold border">Arquivo .txt / .md</button>
+              </div>
+              <input id="material-title" type="text" maxlength="500" placeholder="Título do material (opcional para links)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input id="material-url" type="url" placeholder="https://... (página pública ou vídeo do YouTube)" class="mat-field w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" data-kind="url" />
+              <textarea id="material-text" rows="4" placeholder="Cole aqui o conteúdo (texto simples ou Markdown)..." class="mat-field hidden w-full rounded-xl border border-slate-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" data-kind="text"></textarea>
+              <input id="material-file" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" class="mat-field hidden w-full text-xs text-slate-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-semibold" data-kind="file" />
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-xs text-slate-400">Texto e arquivos até 1 MB. PDF e outros binários ainda não são aceitos pela API: envie-os direto no caderno.</p>
+                <button id="btn-add-material" type="submit" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">Adicionar e enviar</button>
+              </div>
+            </form>
+
+            <div id="materials-list" class="space-y-2"></div>
+          </div>
+
           <!-- Custom Summary / Notes from NotebookLM -->
           <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
@@ -598,8 +642,20 @@
       sessions: [],
       customNotes: {},
       quizAnswers: {},
-      focusedMinutes: 0
+      focusedMinutes: 0,
+      materials: {},
+      googleClientId: '',
+      gnNotebookNames: {}
     };
+
+    // Integração com a Gemini Notebook API (https://developers.google.com/notebook/docs)
+    const GN_API = 'https://notebook.googleapis.com/v1';
+    const GN_SCOPE = 'https://www.googleapis.com/auth/notebook';
+    const GN_MAX_BYTES = 1000000;
+    let gnToken = null; // { value, expiresAt } — só em memória, nunca no localStorage
+    let gnGisPromise = null;
+    let materialKind = 'url';
+    const gnPolling = new Set();
 
     let progressChartInstance = null;
     let pomoInterval = null;
@@ -633,9 +689,417 @@
       } catch (e) {
         // Ignora erro de leitura
       }
+      normalizeMaterials();
       if (!Array.isArray(state.sessions) || state.sessions.length === 0) {
         generateWeeklyPlan(false);
       }
+    }
+
+    // Garante o formato esperado após carregar/importar e destrava envios interrompidos
+    function normalizeMaterials() {
+      if (!state.materials || typeof state.materials !== 'object') state.materials = {};
+      if (!state.gnNotebookNames || typeof state.gnNotebookNames !== 'object') state.gnNotebookNames = {};
+      if (typeof state.googleClientId !== 'string') state.googleClientId = '';
+      Object.values(state.materials).forEach(list => {
+        if (!Array.isArray(list)) return;
+        list.forEach(m => { if (m.status === 'sending') m.status = 'pending'; });
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // ---------- Materiais de estudo -> Gemini Notebook ----------
+
+    function findMaterial(materialId) {
+      for (const [nbId, list] of Object.entries(state.materials)) {
+        const m = Array.isArray(list) ? list.find(x => x.id === materialId) : null;
+        if (m) return { nbId, m };
+      }
+      return null;
+    }
+
+    function gnHasToken() {
+      return !!gnToken && Date.now() < gnToken.expiresAt - 60000;
+    }
+
+    function gnError(code, message, status) {
+      const err = new Error(message);
+      err.code = code;
+      err.status = status;
+      return err;
+    }
+
+    function loadGis() {
+      if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+      if (!gnGisPromise) {
+        gnGisPromise = new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://accounts.google.com/gsi/client';
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => {
+            gnGisPromise = null;
+            s.remove();
+            reject(gnError('NETWORK', 'Não foi possível carregar o login do Google (sem conexão?).'));
+          };
+          document.head.appendChild(s);
+        });
+      }
+      return gnGisPromise;
+    }
+
+    // interactive=true só em resposta a um clique: o Google abre um popup de login/consentimento
+    async function getAccessToken(interactive) {
+      if (gnHasToken()) return gnToken.value;
+      if (!state.googleClientId) throw gnError('NO_CLIENT', 'Configure o OAuth Client ID para enviar ao Gemini Notebook.');
+      if (!interactive) throw gnError('NEEDS_LOGIN', 'Conecte sua conta Google para enviar.');
+      await loadGis();
+      return new Promise((resolve, reject) => {
+        const client = google.accounts.oauth2.initTokenClient({
+          client_id: state.googleClientId,
+          scope: GN_SCOPE,
+          callback: (resp) => {
+            if (!resp || resp.error || !resp.access_token) {
+              reject(gnError('AUTH', 'Login não autorizado: ' + ((resp && (resp.error_description || resp.error)) || 'sem token')));
+              return;
+            }
+            gnToken = { value: resp.access_token, expiresAt: Date.now() + Number(resp.expires_in || 3600) * 1000 };
+            resolve(gnToken.value);
+          },
+          error_callback: (err) => {
+            reject(gnError('AUTH', err && err.type === 'popup_closed' ? 'Login cancelado.' : 'Não foi possível abrir o login do Google (popup bloqueado?).'));
+          }
+        });
+        client.requestAccessToken({ prompt: '' });
+      });
+    }
+
+    async function gnFetch(path, options = {}, interactive = false) {
+      const token = await getAccessToken(interactive);
+      let resp;
+      try {
+        resp = await fetch(GN_API + path, {
+          method: options.method || 'GET',
+          headers: {
+            Authorization: 'Bearer ' + token,
+            ...(options.body ? { 'Content-Type': 'application/json' } : {})
+          },
+          body: options.body ? JSON.stringify(options.body) : undefined
+        });
+      } catch (e) {
+        throw gnError('NETWORK', 'Sem conexão com a API do Gemini Notebook.');
+      }
+      let data = null;
+      try { data = await resp.json(); } catch (e) { /* corpo vazio */ }
+      if (!resp.ok) {
+        if (resp.status === 401) gnToken = null;
+        const apiMsg = (data && data.error && data.error.message) || ('HTTP ' + resp.status);
+        throw gnError('API', apiMsg, resp.status);
+      }
+      return data || {};
+    }
+
+    function notebookNameFromUrl(nb) {
+      const match = /\/notebook\/([0-9a-f-]{36})/i.exec(nb.url || '');
+      return match ? 'notebooks/' + match[1] : null;
+    }
+
+    // Plano B caso o ID da API não seja o UUID do link: procura o caderno pelo título
+    async function findNotebookNameByTitle(nb) {
+      const norm = s => String(s || '').trim().toLowerCase();
+      let pageToken = '';
+      for (let page = 0; page < 10; page++) {
+        const data = await gnFetch('/notebooks?pageSize=100' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''));
+        const hit = (data.notebooks || []).find(n => norm(n.displayName) === norm(nb.title));
+        if (hit) return hit.name;
+        pageToken = data.nextPageToken || '';
+        if (!pageToken) break;
+      }
+      return null;
+    }
+
+    async function createSource(nb, body) {
+      const cached = state.gnNotebookNames[nb.id];
+      const parent = cached || notebookNameFromUrl(nb);
+      if (parent) {
+        try {
+          return await gnFetch('/' + parent + '/sources', { method: 'POST', body });
+        } catch (e) {
+          if (e.status !== 404 || cached) throw e;
+        }
+      }
+      const byTitle = await findNotebookNameByTitle(nb);
+      if (!byTitle) {
+        throw gnError('API', 'Caderno não encontrado nesta conta Google. Confira se é a mesma conta dona do caderno e se o título no Gemini Notebook é "' + nb.title + '".', 404);
+      }
+      state.gnNotebookNames[nb.id] = byTitle;
+      return gnFetch('/' + byTitle + '/sources', { method: 'POST', body });
+    }
+
+    function friendlyApiError(e) {
+      if (e.status === 403) return 'Acesso negado (403): ' + e.message + ' — a API em preview só aceita contas Google pessoais e exige o escopo auth/notebook.';
+      if (e.status === 429) return 'Limite da API atingido (429). Tente de novo em instantes.';
+      return e.message;
+    }
+
+    async function sendMaterial(materialId, interactive) {
+      const found = findMaterial(materialId);
+      if (!found || found.m.status === 'sending') return;
+      const { nbId, m } = found;
+      const nb = getNotebook(nbId);
+      m.status = 'sending';
+      m.error = '';
+      renderMaterials();
+      try {
+        await getAccessToken(interactive);
+        const body = m.kind === 'url'
+          ? { web_content: { url: m.url } }
+          : { mime_type: m.mimeType || 'text/plain', text_content: { content: m.content } };
+        if (m.title) body.display_name = m.title;
+        const source = await createSource(nb, body);
+        m.sourceName = source.name;
+        m.status = source.state === 'ACTIVE' ? 'active' : 'processing';
+        if (!m.title && source.displayName) m.title = source.displayName;
+        delete m.content; // já está no caderno; libera espaço no localStorage
+        saveState();
+        renderMaterials();
+        if (m.status === 'processing') pollSource(materialId);
+      } catch (e) {
+        if (['NO_CLIENT', 'NEEDS_LOGIN', 'NETWORK', 'AUTH'].includes(e.code) || e.status === 401 || e.status === 429) {
+          m.status = 'pending';
+          m.error = e.status ? friendlyApiError(e) : e.message;
+        } else {
+          m.status = 'failed';
+          m.error = friendlyApiError(e);
+        }
+        saveState();
+        renderMaterials();
+        throw e;
+      }
+    }
+
+    // A fonte é processada de forma assíncrona: PROCESSING -> ACTIVE | FAILED
+    async function pollSource(materialId) {
+      if (gnPolling.has(materialId)) return;
+      gnPolling.add(materialId);
+      try {
+        let delay = 2000;
+        const deadline = Date.now() + 120000;
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, delay));
+          delay = Math.min(delay * 1.5, 10000);
+          const found = findMaterial(materialId);
+          if (!found || !found.m.sourceName || found.m.status !== 'processing') return;
+          const source = await gnFetch('/' + found.m.sourceName);
+          if (source.state === 'ACTIVE' || source.state === 'FAILED') {
+            found.m.status = source.state === 'ACTIVE' ? 'active' : 'failed';
+            found.m.error = source.state === 'FAILED' ? ((source.error && source.error.message) || 'O Gemini Notebook não conseguiu processar esta fonte.') : '';
+            if (!found.m.title && source.displayName) found.m.title = source.displayName;
+            saveState();
+            renderMaterials();
+            if (source.state === 'ACTIVE') showToast('Fonte pronta no Gemini Notebook!');
+            return;
+          }
+        }
+      } catch (e) {
+        // Mantém "processando"; o botão Verificar consulta de novo
+      } finally {
+        gnPolling.delete(materialId);
+      }
+    }
+
+    // Envia tudo que ficou pendente (offline, sem login) e retoma verificações
+    async function flushPendingMaterials(interactive) {
+      const all = Object.values(state.materials).flatMap(list => Array.isArray(list) ? list : []);
+      for (const m of all.filter(x => x.status === 'pending')) {
+        try {
+          await sendMaterial(m.id, interactive);
+        } catch (e) {
+          if (e.code !== 'API' || e.status === 401 || e.status === 429) break; // sem login/conexão: não insiste nos demais
+        }
+      }
+      all.filter(x => x.status === 'processing').forEach(x => pollSource(x.id));
+    }
+
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+        reader.readAsText(file);
+      });
+    }
+
+    async function buildMaterialFromForm() {
+      const title = document.getElementById('material-title').value.trim();
+      const base = {
+        id: 'mat-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        title,
+        status: 'pending',
+        error: '',
+        createdAt: new Date().toISOString()
+      };
+
+      if (materialKind === 'url') {
+        const raw = document.getElementById('material-url').value.trim();
+        let parsed;
+        try { parsed = new URL(raw); } catch (e) { throw new Error('Informe um link válido (https://...).'); }
+        if (!/^https?:$/.test(parsed.protocol)) throw new Error('O link precisa começar com http:// ou https://.');
+        if (/(^|\.)(drive|docs)\.google\.com$/i.test(parsed.hostname)) {
+          throw new Error('A API ainda não aceita links do Google Drive/Docs. Adicione esse arquivo direto no caderno.');
+        }
+        return { ...base, kind: 'url', url: parsed.href };
+      }
+
+      let content = '';
+      let mimeType = 'text/plain';
+      let fallbackTitle = '';
+      if (materialKind === 'file') {
+        const file = document.getElementById('material-file').files[0];
+        if (!file) throw new Error('Escolha um arquivo .txt ou .md.');
+        if (!/\.(txt|md|markdown)$/i.test(file.name)) {
+          throw new Error('Só .txt e .md são enviados automaticamente. PDF e outros formatos: adicione direto no caderno.');
+        }
+        if (file.size > GN_MAX_BYTES) throw new Error('Arquivo acima de 1 MB (limite da API).');
+        content = await readFileAsText(file);
+        if (/\.(md|markdown)$/i.test(file.name)) mimeType = 'text/markdown';
+        fallbackTitle = file.name;
+      } else {
+        content = document.getElementById('material-text').value;
+        if (/^\s{0,3}(#{1,6}\s|[-*]\s|```)/m.test(content)) mimeType = 'text/markdown';
+        fallbackTitle = (content.trim().split('\n')[0] || '').replace(/^#+\s*/, '').slice(0, 80);
+      }
+      if (!content.trim()) throw new Error('O conteúdo está vazio.');
+      if (new Blob([content]).size > GN_MAX_BYTES) throw new Error('Conteúdo acima de 1 MB (limite da API).');
+      return { ...base, kind: 'text', title: title || fallbackTitle, mimeType, content };
+    }
+
+    async function handleMaterialSubmit(e) {
+      e.preventDefault();
+      const filled = materialKind === 'url' ? document.getElementById('material-url').value.trim()
+        : materialKind === 'text' ? document.getElementById('material-text').value.trim()
+        : document.getElementById('material-file').files.length;
+      if (!filled) {
+        showToast(materialKind === 'url' ? 'Informe o link do material.' : materialKind === 'text' ? 'Cole o conteúdo do material.' : 'Escolha um arquivo .txt ou .md.');
+        return;
+      }
+      // Pede o token ainda dentro do clique, antes de qualquer leitura de arquivo, para o popup não ser bloqueado
+      const tokenAttempt = state.googleClientId ? getAccessToken(true).catch(() => null) : Promise.resolve(null);
+      let material;
+      try {
+        material = await buildMaterialFromForm();
+      } catch (err) {
+        showToast(err.message);
+        return;
+      }
+      const nbId = state.selectedNotebookId;
+      if (!Array.isArray(state.materials[nbId])) state.materials[nbId] = [];
+      state.materials[nbId].unshift(material);
+      saveState();
+      document.getElementById('material-form').reset();
+      renderMaterials();
+
+      if (!state.googleClientId) {
+        material.error = 'Configure o OAuth Client ID para enviar ao Gemini Notebook.';
+        saveState();
+        renderMaterials();
+        toggleGnSettings(true);
+        showToast('Material salvo. Configure a conexão com o Google para enviá-lo.');
+        return;
+      }
+      await tokenAttempt;
+      try {
+        await sendMaterial(material.id, false);
+        showToast('Material enviado ao Gemini Notebook!');
+      } catch (err) {
+        showToast(material.status === 'pending' ? 'Material salvo como pendente: ' + material.error : 'Falha no envio: ' + material.error);
+      }
+    }
+
+    function toggleGnSettings(show) {
+      const el = document.getElementById('gn-settings');
+      const visible = show === undefined ? el.classList.contains('hidden') : show;
+      el.classList.toggle('hidden', !visible);
+      if (visible) {
+        document.getElementById('gn-client-id').value = state.googleClientId || '';
+        document.getElementById('gn-origin').textContent = location.origin;
+      }
+    }
+
+    async function connectGoogle() {
+      try {
+        await getAccessToken(true);
+        renderMaterials();
+        showToast('Conta Google conectada.');
+        await flushPendingMaterials(false);
+      } catch (e) {
+        renderMaterials();
+        showToast(e.message);
+      }
+    }
+
+    function renderMaterials() {
+      const badge = document.getElementById('gn-status-badge');
+      const connectBtn = document.getElementById('btn-gn-connect');
+      if (!badge) return;
+      if (!state.googleClientId) {
+        badge.textContent = 'Não configurado';
+        badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800';
+        connectBtn.classList.add('hidden');
+      } else if (gnHasToken()) {
+        badge.textContent = 'Conectado';
+        badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800';
+        connectBtn.classList.add('hidden');
+      } else {
+        badge.textContent = 'Desconectado';
+        badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700';
+        connectBtn.classList.remove('hidden');
+      }
+
+      document.querySelectorAll('.mat-kind-btn').forEach(btn => {
+        const active = btn.dataset.matKind === materialKind;
+        btn.className = 'mat-kind-btn px-3 py-1 rounded-lg text-xs font-semibold border ' + (active ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-100 text-slate-700 border-slate-200');
+        btn.setAttribute('aria-selected', String(active));
+      });
+      document.querySelectorAll('.mat-field').forEach(el => el.classList.toggle('hidden', el.dataset.kind !== materialKind));
+
+      const statusMap = {
+        pending: ['Pendente', 'bg-amber-50 text-amber-800'],
+        sending: ['Enviando...', 'bg-indigo-50 text-indigo-700'],
+        processing: ['Processando no Gemini', 'bg-indigo-50 text-indigo-700'],
+        active: ['No caderno ✓', 'bg-emerald-50 text-emerald-800'],
+        failed: ['Falhou', 'bg-rose-50 text-rose-800']
+      };
+      const list = state.materials[state.selectedNotebookId];
+      const listEl = document.getElementById('materials-list');
+      if (!Array.isArray(list) || list.length === 0) {
+        listEl.innerHTML = '<p class="text-xs text-slate-400">Nenhum material adicionado a este caderno por aqui ainda.</p>';
+        return;
+      }
+      listEl.innerHTML = list.map(m => {
+        const [label, cls] = statusMap[m.status] || statusMap.pending;
+        const detail = m.kind === 'url' ? m.url : (m.mimeType === 'text/markdown' ? 'Markdown' : 'Texto');
+        const canRetry = m.status === 'pending' || m.status === 'failed';
+        return `
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-slate-900 truncate">${m.kind === 'url' ? '🔗' : '📝'} ${escapeHtml(m.title || m.url || 'Material sem título')}</p>
+                <p class="text-xs text-slate-500 truncate">${escapeHtml(detail)}</p>
+              </div>
+              <span class="shrink-0 text-xs font-semibold px-2.5 py-0.5 rounded-full ${cls}">${label}</span>
+            </div>
+            ${m.error ? `<p class="mt-1.5 text-xs text-rose-700">${escapeHtml(m.error)}</p>` : ''}
+            <div class="mt-2 flex flex-wrap gap-3 text-xs font-semibold">
+              ${canRetry ? `<button type="button" data-mat-retry="${m.id}" class="mat-retry-btn text-indigo-600 hover:text-indigo-800">${m.status === 'failed' ? 'Tentar de novo' : 'Enviar agora'}</button>` : ''}
+              ${m.status === 'processing' ? `<button type="button" data-mat-check="${m.id}" class="mat-check-btn text-indigo-600 hover:text-indigo-800">Verificar</button>` : ''}
+              <button type="button" data-mat-del="${m.id}" class="mat-del-btn text-rose-600 hover:text-rose-800" title="Remove só desta lista; no caderno a fonte continua">Remover da lista</button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function getNotebook(id) {
@@ -987,6 +1451,8 @@
         </div>
       `;
 
+      renderMaterials();
+
       // Saved notes for this notebook
       const notes = state.customNotes[nb.id] || [];
       const notesEl = document.getElementById('saved-notes-list');
@@ -995,7 +1461,7 @@
       } else {
         notesEl.innerHTML = notes.map((n, idx) => `
           <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-200 flex items-start justify-between gap-3">
-            <div class="text-sm text-slate-800 whitespace-pre-wrap">${n.text}</div>
+            <div class="text-sm text-slate-800 whitespace-pre-wrap">${escapeHtml(n.text)}</div>
             <button data-del-note="${idx}" class="del-note-btn text-xs text-rose-600 hover:text-rose-800 font-semibold shrink-0">Excluir</button>
           </div>
         `).join('');
@@ -1119,6 +1585,7 @@
           try {
             const imported = JSON.parse(reader.result);
             state = { ...state, ...imported };
+            normalizeMaterials();
             saveState();
             renderAll();
             showToast('Backup importado com sucesso!');
@@ -1157,8 +1624,63 @@
         showToast('Resumo salvo neste caderno!');
       });
 
+      // Materiais -> Gemini Notebook
+      document.getElementById('material-form').addEventListener('submit', handleMaterialSubmit);
+      document.getElementById('btn-gn-settings').addEventListener('click', () => toggleGnSettings());
+      document.getElementById('btn-gn-connect').addEventListener('click', connectGoogle);
+      document.getElementById('btn-gn-save-client').addEventListener('click', () => {
+        const value = document.getElementById('gn-client-id').value.trim();
+        if (value && !/\.apps\.googleusercontent\.com$/.test(value)) {
+          showToast('O Client ID deve terminar em .apps.googleusercontent.com');
+          return;
+        }
+        state.googleClientId = value;
+        gnToken = null;
+        saveState();
+        renderMaterials();
+        if (!value) {
+          showToast('Conexão com o Google removida deste navegador.');
+          return;
+        }
+        toggleGnSettings(false);
+        connectGoogle();
+      });
+      window.addEventListener('online', () => { if (gnHasToken()) flushPendingMaterials(false); });
+      if (state.googleClientId && navigator.onLine) loadGis().catch(() => {});
+
       // Delegated events
       document.body.addEventListener('click', (e) => {
+        const kindBtn = e.target.closest('.mat-kind-btn');
+        if (kindBtn) {
+          materialKind = kindBtn.dataset.matKind;
+          renderMaterials();
+          return;
+        }
+        const retryBtn = e.target.closest('.mat-retry-btn');
+        if (retryBtn) {
+          sendMaterial(retryBtn.dataset.matRetry, true)
+            .then(() => showToast('Material enviado ao Gemini Notebook!'))
+            .catch(err => showToast(err.message));
+          return;
+        }
+        const checkBtn = e.target.closest('.mat-check-btn');
+        if (checkBtn) {
+          getAccessToken(true)
+            .then(() => { renderMaterials(); pollSource(checkBtn.dataset.matCheck); })
+            .catch(err => showToast(err.message));
+          return;
+        }
+        const delMatBtn = e.target.closest('.mat-del-btn');
+        if (delMatBtn) {
+          const found = findMaterial(delMatBtn.dataset.matDel);
+          if (found) {
+            state.materials[found.nbId] = state.materials[found.nbId].filter(x => x.id !== found.m.id);
+            saveState();
+            renderMaterials();
+            showToast('Material removido da lista.');
+          }
+          return;
+        }
         const openBtn = e.target.closest('.open-nb-btn');
         if (openBtn) {
           openNotebookInApp(openBtn.dataset.openNb);
