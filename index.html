@@ -277,6 +277,13 @@
               </div>
             </form>
 
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
+              <p class="text-xs text-slate-500">Material baixado pelo <strong>Agente Faculdade</strong>: envia o <code>topico.md</code> de cada tópico da matéria.</p>
+              <button id="btn-import-agent" type="button" class="px-3.5 py-1.5 rounded-xl bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-xs font-semibold transition">Importar pasta do agente</button>
+              <input id="agent-folder-input" type="file" webkitdirectory multiple class="hidden" />
+            </div>
+            <div id="agent-import-panel" class="hidden rounded-xl bg-indigo-50 border border-indigo-200 p-3.5 space-y-2"></div>
+
             <div id="materials-list" class="space-y-2"></div>
           </div>
 
@@ -316,6 +323,7 @@
     const NOTEBOOKS_DATA = [
       {
         id: 'af-pca',
+        agentFolder: 'Análise Fatorial e PCA',
         title: 'Guia Completo de Análise Fatorial e PCA',
         emoji: '📊',
         url: 'https://gemini.google.com/notebook/62a66757-caf0-4010-bd39-fa149ea223fd',
@@ -610,6 +618,95 @@
             answer: 1
           }
         ]
+      },
+      {
+        id: 'ga-al',
+        title: 'Geometria Analítica e Álgebra Linear',
+        emoji: '📐',
+        url: '', // criado no Gemini Notebook no primeiro envio; o ID fica em state.gnNotebookNames
+        agentFolder: 'Geometria Analítica e Álgebra Linear',
+        sourceCount: 16,
+        sources: [
+          '01 - Álgebra e geometria dos números complexos',
+          '02 - Introdução ao Estudo de Matrizes',
+          '03 - Inversão de Matrizes',
+          '04 - Geometria Vetorial e Transformações Lineares',
+          '05 - O Espaço Vetorial Rn: Dependência e Independência Linear',
+          '06 - Espaços Vetoriais: Dependência e Independência Linear',
+          '07 - O Espaço Vetorial Rn: Formas Quadráticas',
+          '08 - Espaços Vetoriais: Base',
+          '09 - Espaços Vetoriais: Produtos Internos Gerais',
+          '10 - Sistemas Lineares',
+          '11 - Espaços Vetoriais: Exemplos e Propriedades Básicas',
+          '12 - O Espaço Vetorial Rn: Subespaços e Geradores',
+          '13 - Espaços Vetoriais: Transformações Lineares',
+          '14 - O Espaço Vetorial Rn: Base e Dimensão',
+          '15 - Matrizes Elementares e Fatoração LU',
+          '16 - Determinantes e Autovalores'
+        ],
+        summary: [
+          {
+            heading: 'Matrizes, Inversa e Sistemas Lineares',
+            points: [
+              'Um sistema linear pode ser escrito como Ax = b; se A é invertível, a solução única é x = A⁻¹b.',
+              'Inversa por operações elementares: escalone [A | I] até obter [I | A⁻¹]. Na matriz 2×2 com linhas (a, b) e (c, d), a inversa existe somente se ad − bc ≠ 0.',
+              'Fatoração LU: A = LU (triangular inferior × triangular superior); resolve-se Ly = b e depois Ux = y. Cada operação elementar de linha equivale a multiplicar por uma matriz elementar.'
+            ]
+          },
+          {
+            heading: 'Espaços Vetoriais, Base e Dimensão',
+            points: [
+              'Subespaço: contém o vetor nulo e é fechado para soma e para multiplicação por escalar.',
+              'Vetores são linearmente independentes (LI) quando a única combinação linear que dá o vetor nulo tem todos os coeficientes iguais a zero.',
+              'Base = conjunto LI que gera o espaço; a dimensão é o número de vetores de qualquer base (no Rn, n vetores LI já formam uma base).'
+            ]
+          },
+          {
+            heading: 'Transformações Lineares, Determinantes e Autovalores',
+            points: [
+              'T é linear se T(u + v) = T(u) + T(v) e T(cv) = cT(v); toda transformação linear de Rn em Rm é representada por uma matriz m×n.',
+              'det(A) ≠ 0 equivale a A ser invertível (colunas LI, sistema Ax = b com solução única).',
+              'Autovalores: raízes de det(A − λI) = 0; os autovetores satisfazem Av = λv, com v ≠ 0.'
+            ]
+          },
+          {
+            heading: 'Produto Interno, Formas Quadráticas e Números Complexos',
+            points: [
+              'O produto interno define norma, ângulo e ortogonalidade (u e v são ortogonais quando o produto interno entre eles é zero).',
+              'Forma quadrática: Q(x) = xᵀAx com A simétrica; é definida positiva quando todos os autovalores de A são positivos.',
+              'Complexos: z = a + bi = r(cos θ + i sen θ); pela fórmula de De Moivre, zⁿ = rⁿ(cos nθ + i sen nθ).'
+            ]
+          }
+        ],
+        quiz: [
+          {
+            q: 'Quando uma matriz quadrada A possui inversa?',
+            options: [
+              'Sempre que A for quadrada.',
+              'Quando det(A) ≠ 0.',
+              'Quando todos os elementos de A são positivos.'
+            ],
+            answer: 1
+          },
+          {
+            q: 'O que caracteriza um conjunto de vetores linearmente independente?',
+            options: [
+              'Todos os vetores têm a mesma norma.',
+              'Algum vetor é combinação linear dos demais.',
+              'A única combinação linear que resulta no vetor nulo tem todos os coeficientes iguais a zero.'
+            ],
+            answer: 2
+          },
+          {
+            q: 'Como se encontram os autovalores de uma matriz A?',
+            options: [
+              'Resolvendo det(A − λI) = 0.',
+              'Somando os elementos da diagonal principal.',
+              'Calculando a inversa de A.'
+            ],
+            answer: 0
+          }
+        ]
       }
     ];
 
@@ -637,7 +734,8 @@
         'series-temporais': 'alta',
         'power-bi': 'media',
         'processos-org': 'media',
-        'nosql': 'baixa'
+        'nosql': 'baixa',
+        'ga-al': 'alta'
       },
       sessions: [],
       customNotes: {},
@@ -654,7 +752,10 @@
     const GN_MAX_BYTES = 1000000;
     let gnToken = null; // { value, expiresAt } — só em memória, nunca no localStorage
     let gnGisPromise = null;
+    const GN_SEND_INTERVAL_MS = 3200; // a API aceita 20 fontes novas por minuto por usuário
     let materialKind = 'url';
+    let agentImportPlan = null;
+    let agentImportRunning = false;
     const gnPolling = new Set();
 
     let progressChartInstance = null;
@@ -806,6 +907,13 @@
       return match ? 'notebooks/' + match[1] : null;
     }
 
+    // Link do caderno: fixo no cadastro ou derivado do ID devolvido pela API
+    function notebookUrl(nb) {
+      if (nb.url) return nb.url;
+      const name = state.gnNotebookNames && state.gnNotebookNames[nb.id];
+      return name ? 'https://gemini.google.com/notebook/' + name.replace(/^notebooks\//, '') : '';
+    }
+
     // Plano B caso o ID da API não seja o UUID do link: procura o caderno pelo título
     async function findNotebookNameByTitle(nb) {
       const norm = s => String(s || '').trim().toLowerCase();
@@ -830,12 +938,29 @@
           if (e.status !== 404 || cached) throw e;
         }
       }
-      const byTitle = await findNotebookNameByTitle(nb);
-      if (!byTitle) {
-        throw gnError('API', 'Caderno não encontrado nesta conta Google. Confira se é a mesma conta dona do caderno e se o título no Gemini Notebook é "' + nb.title + '".', 404);
+      let name = await findNotebookNameByTitle(nb);
+      if (!name) {
+        if (nb.url) {
+          throw gnError('API', 'Caderno não encontrado nesta conta Google. Confira se é a mesma conta dona do caderno e se o título no Gemini Notebook é "' + nb.title + '".', 404);
+        }
+        // Caderno cadastrado só no app: cria no Gemini Notebook com o mesmo título
+        const created = await gnFetch('/notebooks', { method: 'POST', body: { display_name: nb.title } });
+        name = created.name;
       }
-      state.gnNotebookNames[nb.id] = byTitle;
-      return gnFetch('/' + byTitle + '/sources', { method: 'POST', body });
+      state.gnNotebookNames[nb.id] = name;
+      saveState();
+      return gnFetch('/' + name + '/sources', { method: 'POST', body });
+    }
+
+    // Depois do login, localiza pelo título os cadernos sem link (ex.: em outro aparelho)
+    async function resolveNotebookLinks() {
+      let changed = false;
+      for (const nb of NOTEBOOKS_DATA) {
+        if (nb.url || state.gnNotebookNames[nb.id]) continue;
+        const name = await findNotebookNameByTitle(nb);
+        if (name) { state.gnNotebookNames[nb.id] = name; changed = true; }
+      }
+      if (changed) { saveState(); renderAll(); }
     }
 
     function friendlyApiError(e) {
@@ -858,7 +983,9 @@
           ? { web_content: { url: m.url } }
           : { mime_type: m.mimeType || 'text/plain', text_content: { content: m.content } };
         if (m.title) body.display_name = m.title;
+        const hadNotebook = !!notebookUrl(nb);
         const source = await createSource(nb, body);
+        if (!hadNotebook && notebookUrl(nb)) renderAll(); // o link do caderno recém-criado passa a aparecer
         m.sourceName = source.name;
         m.status = source.state === 'ACTIVE' ? 'active' : 'processing';
         if (!m.title && source.displayName) m.title = source.displayName;
@@ -913,14 +1040,148 @@
     // Envia tudo que ficou pendente (offline, sem login) e retoma verificações
     async function flushPendingMaterials(interactive) {
       const all = Object.values(state.materials).flatMap(list => Array.isArray(list) ? list : []);
-      for (const m of all.filter(x => x.status === 'pending')) {
+      const pending = all.filter(x => x.status === 'pending');
+      for (let i = 0; i < pending.length; i++) {
+        if (i > 0) await new Promise(r => setTimeout(r, GN_SEND_INTERVAL_MS));
         try {
-          await sendMaterial(m.id, interactive);
+          await sendMaterial(pending[i].id, interactive);
         } catch (e) {
           if (e.code !== 'API' || e.status === 401 || e.status === 429) break; // sem login/conexão: não insiste nos demais
         }
       }
       all.filter(x => x.status === 'processing').forEach(x => pollSource(x.id));
+    }
+
+    // ---------- Importação do material baixado pelo Agente Faculdade ----------
+    // Estrutura esperada: <Matéria>/.estado.json e <Matéria>/<NN - Tópico>/topico.md
+
+    function normalizeName(s) {
+      return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    }
+
+    async function prepareAgentImport(fileList) {
+      const subjects = {};
+      const subjectOf = name => (subjects[name] = subjects[name] || { topics: {}, estado: null });
+      Array.from(fileList).forEach(f => {
+        const parts = (f.webkitRelativePath || f.name).split('/');
+        const base = parts[parts.length - 1];
+        if (base === 'topico.md' && parts.length >= 3) subjectOf(parts[parts.length - 3]).topics[parts[parts.length - 2]] = f;
+        else if (base === '.estado.json' && parts.length >= 2) subjectOf(parts[parts.length - 2]).estado = f;
+      });
+      const names = Object.keys(subjects).filter(n => Object.keys(subjects[n].topics).length > 0);
+      if (names.length === 0) {
+        throw new Error('Nenhum topico.md encontrado. Selecione a pasta da matéria (ou a pasta "material") gerada pelo agente.');
+      }
+      const nb = getNotebook(state.selectedNotebookId);
+      const wanted = normalizeName(nb.agentFolder || nb.title);
+      let subject = names.find(n => normalizeName(n) === wanted);
+      if (!subject && names.length === 1) subject = names[0];
+      if (!subject) {
+        throw new Error('A pasta tem várias matérias e nenhuma corresponde a este caderno. Selecione só a pasta da matéria.');
+      }
+
+      // .estado.json: chave = id da atividade no Moodle (estável); tópicos com "erro" ficam de fora
+      const byFolder = {};
+      if (subjects[subject].estado) {
+        try {
+          const estado = JSON.parse(await readFileAsText(subjects[subject].estado));
+          Object.entries(estado).forEach(([id, info]) => { if (info && info.pasta) byFolder[info.pasta] = { id, erro: info.erro }; });
+        } catch (e) { /* sem .estado.json válido: usa só as pastas */ }
+      }
+      const existing = new Set((state.materials[nb.id] || []).filter(m => m.agentKey && m.status !== 'failed').map(m => m.agentKey));
+      const items = [];
+      let skipped = 0;
+      const folders = Object.keys(subjects[subject].topics).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+      for (const folder of folders) {
+        const info = byFolder[folder] || {};
+        if (info.erro) continue;
+        const key = info.id ? 'moodle:' + info.id : 'pasta:' + subject + '/' + folder;
+        if (existing.has(key)) { skipped++; continue; }
+        const content = await readFileAsText(subjects[subject].topics[folder]);
+        if (!content.trim() || new Blob([content]).size > GN_MAX_BYTES) continue;
+        items.push({ key, title: folder, content });
+      }
+      return { nbId: nb.id, subject, items, skipped, mismatch: normalizeName(subject) !== wanted };
+    }
+
+    function renderAgentImportPanel(progress) {
+      const panel = document.getElementById('agent-import-panel');
+      if (!agentImportPlan) {
+        panel.classList.add('hidden');
+        panel.innerHTML = '';
+        return;
+      }
+      const plan = agentImportPlan;
+      const nb = getNotebook(plan.nbId);
+      const secs = Math.ceil(plan.items.length * GN_SEND_INTERVAL_MS / 1000);
+      panel.classList.remove('hidden');
+      panel.innerHTML = `
+        <p class="text-sm font-semibold text-slate-900">Importar ${plan.items.length} tópico(s) de "${escapeHtml(plan.subject)}" para o caderno "${escapeHtml(nb.title)}"?</p>
+        ${plan.mismatch ? '<p class="text-xs font-semibold text-amber-800">Atenção: o nome da pasta é diferente do nome deste caderno. Confira se é a matéria certa: a API não remove fontes enviadas.</p>' : ''}
+        <p class="text-xs text-slate-600">
+          Cada tópico vira uma fonte com o texto do <code>topico.md</code>.${plan.skipped ? ` ${plan.skipped} já importado(s) fica(m) de fora.` : ''}
+          Leva cerca de ${secs} s (limite de 20 envios por minuto). Os PDFs (<code>livro.pdf</code>, <code>saiba-mais</code>) e as imagens não são aceitos pela API: arraste-os direto no caderno.
+        </p>
+        ${progress
+          ? `<p class="text-xs font-semibold text-indigo-700">${escapeHtml(progress)}</p>`
+          : `<div class="flex gap-2">
+               <button id="btn-agent-import-run" type="button" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">Enviar ao Gemini Notebook</button>
+               <button id="btn-agent-import-cancel" type="button" class="px-3.5 py-1.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition">Cancelar</button>
+             </div>`}
+      `;
+    }
+
+    async function runAgentImport() {
+      if (!agentImportPlan || agentImportRunning) return;
+      agentImportRunning = true;
+      const plan = agentImportPlan;
+      // Token pedido dentro do clique para o popup do Google não ser bloqueado
+      const tokenAttempt = state.googleClientId ? getAccessToken(true).catch(() => null) : Promise.resolve(null);
+      if (!Array.isArray(state.materials[plan.nbId])) state.materials[plan.nbId] = [];
+      const stamp = Date.now().toString(36);
+      const created = plan.items.map((item, i) => ({
+        id: 'mat-' + stamp + '-' + i,
+        title: item.title,
+        kind: 'text',
+        mimeType: 'text/markdown',
+        content: item.content,
+        agentKey: item.key,
+        status: 'pending',
+        error: '',
+        createdAt: new Date().toISOString()
+      }));
+      state.materials[plan.nbId].unshift(...created);
+      saveState();
+      renderMaterials();
+      let sent = 0;
+      try {
+        if (!state.googleClientId) {
+          toggleGnSettings(true);
+          showToast('Tópicos salvos como pendentes. Configure a conexão com o Google para enviá-los.');
+          return;
+        }
+        if (!(await tokenAttempt)) {
+          showToast('Tópicos salvos como pendentes. Conecte sua conta Google para enviá-los.');
+          return;
+        }
+        for (let i = 0; i < created.length; i++) {
+          renderAgentImportPanel(`Enviando ${i + 1} de ${created.length}: ${created[i].title}`);
+          if (i > 0) await new Promise(r => setTimeout(r, GN_SEND_INTERVAL_MS));
+          try {
+            await sendMaterial(created[i].id, false);
+            sent++;
+          } catch (e) {
+            if (e.code !== 'API' || e.status === 401 || e.status === 429) break; // o restante fica pendente
+          }
+        }
+        showToast(sent === created.length
+          ? `${sent} tópicos enviados ao Gemini Notebook!`
+          : `${sent} de ${created.length} tópicos enviados; os demais ficaram pendentes ou falharam.`);
+      } finally {
+        agentImportRunning = false;
+        agentImportPlan = null;
+        renderAgentImportPanel();
+      }
     }
 
     function readFileAsText(file) {
@@ -1033,6 +1294,7 @@
         await getAccessToken(true);
         renderMaterials();
         showToast('Conta Google conectada.');
+        await resolveNotebookLinks().catch(() => {});
         await flushPendingMaterials(false);
       } catch (e) {
         renderMaterials();
@@ -1207,7 +1469,7 @@
         lines.push(`DTEND;TZID=America/Sao_Paulo:${y}${mo}${da}T${eh}${em}00`);
         lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${dayObj ? dayObj.ics : 'MO'}`);
         lines.push(`SUMMARY:Estudar: ${nb.title}`);
-        lines.push(`DESCRIPTION:Acessar resumo e fontes no Gemini Notebook: ${nb.url}`);
+        lines.push(`DESCRIPTION:Acessar resumo e fontes no Gemini Notebook: ${notebookUrl(nb) || 'https://gemini.google.com/'}`);
         lines.push('END:VEVENT');
       });
 
@@ -1266,6 +1528,7 @@
       const total = state.sessions.length;
       const done = state.sessions.filter(s => s.done).length;
       document.getElementById('kpi-sessions').textContent = `${done}/${total}`;
+      document.getElementById('kpi-notebooks').textContent = String(NOTEBOOKS_DATA.length);
       document.getElementById('kpi-minutes').textContent = `${state.focusedMinutes} min`;
 
       const nextSess = state.sessions.find(s => !s.done);
@@ -1297,9 +1560,9 @@
                 <button data-open-nb="${nb.id}" class="open-nb-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 text-indigo-600">
                   Ver Resumo
                 </button>
-                <a href="${nb.url}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
+                ${notebookUrl(nb) ? `<a href="${notebookUrl(nb)}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
                   Abrir Caderno ↗
-                </a>
+                </a>` : ''}
               </div>
             </div>
           `;
@@ -1427,9 +1690,9 @@
             <span class="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 mb-1.5">Gemini Notebook • ${nb.sourceCount} fontes</span>
             <h2 class="text-lg font-bold text-slate-900">${nb.emoji} ${nb.title}</h2>
           </div>
-          <a href="${nb.url}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+          ${notebookUrl(nb) ? `<a href="${notebookUrl(nb)}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
             Abrir no Gemini Notebook ↗
-          </a>
+          </a>` : '<span class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs font-semibold">Caderno criado no primeiro envio</span>'}
         </div>
 
         <div class="mt-4 space-y-4">
@@ -1645,6 +1908,29 @@
         toggleGnSettings(false);
         connectGoogle();
       });
+      document.getElementById('btn-import-agent').addEventListener('click', () => {
+        if (agentImportRunning) { showToast('Já existe uma importação em andamento.'); return; }
+        document.getElementById('agent-folder-input').click();
+      });
+      document.getElementById('agent-folder-input').addEventListener('change', async (e) => {
+        const files = e.target.files;
+        try {
+          const plan = await prepareAgentImport(files);
+          if (plan.items.length === 0) {
+            showToast(plan.skipped ? 'Todos os tópicos desta matéria já foram importados.' : 'Nenhum tópico válido encontrado na pasta.');
+          } else {
+            agentImportPlan = plan;
+            renderAgentImportPanel();
+          }
+        } catch (err) {
+          showToast(err.message);
+        }
+        e.target.value = '';
+      });
+      document.getElementById('agent-import-panel').addEventListener('click', (e) => {
+        if (e.target.id === 'btn-agent-import-run') runAgentImport();
+        if (e.target.id === 'btn-agent-import-cancel') { agentImportPlan = null; renderAgentImportPanel(); }
+      });
       window.addEventListener('online', () => { if (gnHasToken()) flushPendingMaterials(false); });
       if (state.googleClientId && navigator.onLine) loadGis().catch(() => {});
 
@@ -1689,6 +1975,7 @@
         const selBtn = e.target.closest('.select-nb-btn');
         if (selBtn) {
           state.selectedNotebookId = selBtn.dataset.selectNb;
+          if (!agentImportRunning) { agentImportPlan = null; renderAgentImportPanel(); }
           saveState();
           renderNotebooksTab();
           return;

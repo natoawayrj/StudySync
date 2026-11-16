@@ -21,6 +21,7 @@ Os dados do usuário (cronograma, sessões concluídas e tempo focado) permanece
 - **Plano de Estudos:** geração e ajuste do cronograma semanal, com suporte a exportação de agenda no formato `.ics` e backup/restauração de dados em `.json`.
 - **Cadernos & Resumos:** acesso organizado aos cadernos e resumos de estudo.
 - **Novo material de estudo:** cadastro de links, vídeos do YouTube, texto/Markdown ou arquivos `.txt`/`.md`, enviados automaticamente como fonte do caderno selecionado pela Gemini Notebook API, com acompanhamento do status (pendente, processando, no caderno, falhou).
+- **Importar pasta do agente:** lê a pasta de uma matéria gerada pelo Agente Faculdade (`.estado.json` + `topico.md` por tópico) e envia cada tópico como fonte do caderno, sem repetir os já importados. Se o caderno ainda não existir no Gemini Notebook, ele é criado com o mesmo título.
 - **Temporizador Pomodoro:** cronômetro integrado para registro de sessões de foco.
 - **Suporte PWA (Offline):** instalável no computador (Chrome/Edge) e no celular (Android/iOS) por meio de `manifest.json` e Service Worker (`sw.js`).
 
@@ -87,6 +88,7 @@ Observações:
 - Tipos aceitos: páginas web públicas, vídeos do YouTube e texto/Markdown de até 1 MB. PDF, outros binários e links do Drive ainda não são suportados pela API e devem ser adicionados direto no caderno.
 - O login vale cerca de 1 hora; sem conexão ou sem login, o material fica como **Pendente** e é enviado ao reconectar.
 - O Client ID fica salvo apenas no navegador e o token de acesso fica só em memória.
+- A importação da pasta do agente envia só o texto dos tópicos (`topico.md`), respeitando o limite de 20 envios por minuto; `livro.pdf`, `saiba-mais/*.pdf` e imagens precisam ser arrastados direto no caderno. O material é de uso pessoal e não entra no repositório: é lido do disco no momento da importação.
 - A API não remove fontes: **Remover da lista** apaga o item apenas no StudySync.
 
 Referência: [documentação da Gemini Notebook API](https://developers.google.com/notebook/docs).
